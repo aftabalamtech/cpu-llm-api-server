@@ -7,7 +7,6 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: ${PORT:-8080}
-      MODEL_PATH: ${MODEL_PATH:-/models/model.gguf}
       MODEL_DIR: ${MODEL_DIR:-/models}
       DOWNLOAD_MODEL: ${DOWNLOAD_MODEL:-true}
     ports:
