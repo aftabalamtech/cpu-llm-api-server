@@ -18,6 +18,7 @@ set -Eeuo pipefail
 : "${BATCH_SIZE:=256}"
 : "${UBATCH_SIZE:=128}"
 : "${PARALLEL:=1}"
+: "${ENABLE_WEBUI:=true}"
 : "${LOG_VERBOSITY:=3}"
 : "${CORS_ORIGINS:=}"
 : "${LLAMA_SERVER_BIN:=}"
@@ -84,9 +85,14 @@ args=(
   --batch-size "${BATCH_SIZE}"
   --ubatch-size "${UBATCH_SIZE}"
   --parallel "${PARALLEL}"
-  --no-webui
   --log-verbosity "${LOG_VERBOSITY}"
 )
+
+# Web UI is enabled by default so the service root (/) is browser-accessible.
+# Set ENABLE_WEBUI=false for API-only/headless deployments.
+if [[ "${ENABLE_WEBUI}" != "true" ]]; then
+  args+=(--no-webui)
+fi
 
 if [[ -n "${MODEL_ALIAS}" ]]; then
   args+=(--alias "${MODEL_ALIAS}")
