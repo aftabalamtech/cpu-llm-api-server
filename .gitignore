@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.gguf
+*.gguf.*
+models/*
+!models/.gitkeep
+__pycache__/
+.pytest_cache/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

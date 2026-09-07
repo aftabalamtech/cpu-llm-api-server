@@ -1,0 +1,23 @@
+services:
+  llama-api:
+    build: .
+    image: cpu-llm-api-server:local
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: ${PORT:-8080}
+      MODEL_PATH: ${MODEL_PATH:-/models/model.gguf}
+      MODEL_DIR: ${MODEL_DIR:-/models}
+      DOWNLOAD_MODEL: ${DOWNLOAD_MODEL:-true}
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - ./models:/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "PORT=$${PORT:-8080} /app/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s

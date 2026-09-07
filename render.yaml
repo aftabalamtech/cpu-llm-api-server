@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: cpu-llm-api-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DOWNLOAD_MODEL
+        value: "true"
+      - key: MODEL_DIR
+        value: /models
+      - key: MODEL_PATH
+        value: /models/model.gguf
+      - key: CPU_THREADS
+        value: "2"
+      - key: CPU_THREADS_BATCH
+        value: "2"
+      - key: CONTEXT_SIZE
+        value: "2048"
+      - key: BATCH_SIZE
+        value: "256"
+      - key: UBATCH_SIZE
+        value: "128"
+      - key: PARALLEL
+        value: "1"
+      - key: API_KEY
+        sync: false
+      - key: MODEL_REPO
+        sync: false
+      - key: MODEL_FILE
+        sync: false
+      - key: HF_TOKEN
+        sync: false

@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+models/*
+!models/.gitkeep
+*.gguf
+*.gguf.*
+__pycache__/
+.pytest_cache/
+.DS_Store
+Thumbs.db
+README.md
+docs/
+tests/
