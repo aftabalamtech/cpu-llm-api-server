@@ -4,8 +4,8 @@ set -Eeuo pipefail
 : "${PORT:=8080}"
 : "${HOST:=0.0.0.0}"
 : "${API_KEY:=}"
-: "${MODEL_ALIAS:=local-model}"
-: "${MODEL_PATH:=/models/model.gguf}"
+: "${MODEL_ALIAS:=}"
+: "${MODEL_PATH:=}"
 : "${MODEL_DIR:=/models}"
 : "${MODEL_REPO:=}"
 : "${MODEL_FILE:=}"
@@ -19,37 +19,32 @@ set -Eeuo pipefail
 : "${UBATCH_SIZE:=128}"
 : "${PARALLEL:=1}"
 : "${LOG_VERBOSITY:=3}"
-: "${CORS_ORIGINS:=*}"
+: "${CORS_ORIGINS:=}"
 : "${LLAMA_SERVER_BIN:=llama-server}"
 : "${LLAMA_SERVER_ARGS:=}"
 
-if [[ -z "${MODEL_PATH}" ]]; then
-  echo "MODEL_PATH must not be empty" >&2
+if [[ -n "${MODEL_PATH}" && -f "${MODEL_PATH}" ]]; then
+  echo "Using model from MODEL_PATH: ${MODEL_PATH}"
+elif [[ "${DOWNLOAD_MODEL}" == "true" ]]; then
+  if [[ -z "${MODEL_REPO}" || -z "${MODEL_FILE}" ]]; then
+    echo "No model configured. Set MODEL_REPO and MODEL_FILE to the exact model to download, or set MODEL_PATH to an existing GGUF file." >&2
+    exit 2
+  fi
+  MODEL_PATH="${MODEL_PATH:-${MODEL_DIR}/${MODEL_FILE}}"
+  export MODEL_DIR MODEL_REPO MODEL_FILE MODEL_REVISION HF_TOKEN MODEL_PATH
+  "$(dirname "$0")/download-model.sh"
+else
+  echo "No usable model configured. Set MODEL_PATH to an existing GGUF file or set MODEL_REPO and MODEL_FILE with DOWNLOAD_MODEL=true." >&2
   exit 2
 fi
 
 if [[ ! -f "${MODEL_PATH}" ]]; then
-  if [[ "${DOWNLOAD_MODEL}" != "true" ]]; then
-    echo "Model not found at ${MODEL_PATH} and DOWNLOAD_MODEL is not true." >&2
-    exit 1
-  fi
-  if [[ -z "${MODEL_REPO}" || -z "${MODEL_FILE}" ]]; then
-    echo "Model not found. Set MODEL_REPO and MODEL_FILE, or mount MODEL_PATH." >&2
-    exit 1
-  fi
-  MODEL_DIR="${MODEL_DIR:-$(dirname "${MODEL_PATH}")}"
-  export MODEL_DIR MODEL_REPO MODEL_FILE MODEL_REVISION HF_TOKEN MODEL_PATH
-  "$(dirname "$0")/download-model.sh"
-fi
-
-if [[ ! -f "${MODEL_PATH}" ]]; then
-  echo "Model file still not found at ${MODEL_PATH}." >&2
+  echo "Model file not found at ${MODEL_PATH}." >&2
   exit 1
 fi
 
 args=(
   --model "${MODEL_PATH}"
-  --alias "${MODEL_ALIAS}"
   --host "${HOST}"
   --port "${PORT}"
   --threads "${CPU_THREADS}"
@@ -60,14 +55,20 @@ args=(
   --parallel "${PARALLEL}"
   --no-webui
   --log-verbosity "${LOG_VERBOSITY}"
-  --cors-origins "${CORS_ORIGINS}"
 )
+
+if [[ -n "${MODEL_ALIAS}" ]]; then
+  args+=(--alias "${MODEL_ALIAS}")
+fi
+
+if [[ -n "${CORS_ORIGINS}" ]]; then
+  args+=(--cors-origins "${CORS_ORIGINS}")
+fi
 
 if [[ -n "${API_KEY}" ]]; then
   args+=(--api-key "${API_KEY}")
 fi
 
-# Deliberately allow extra, operator-supplied flags without inventing defaults.
 if [[ -n "${LLAMA_SERVER_ARGS}" ]]; then
   read -r -a extra_args <<< "${LLAMA_SERVER_ARGS}"
   args+=("${extra_args[@]}")
