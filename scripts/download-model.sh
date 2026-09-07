@@ -28,7 +28,21 @@ if [[ -n "${HF_TOKEN}" ]]; then
 fi
 
 tmp="${target}.part"
+
 echo "Downloading ${MODEL_REPO}/${MODEL_FILE} to ${target}"
+
+# Railway Free/Trial volumes are small. Give a useful diagnostic before curl
+# starts instead of repeatedly restarting after a disk-full write failure.
+avail_kb="$(df -Pk "$(dirname "${target}")" | awk 'NR==2 {print $4}')"
+if [[ -n "${avail_kb}" && "${avail_kb}" -lt 50000 ]]; then
+  echo "ERROR: insufficient free disk space in $(dirname "${target}")." >&2
+  echo "Available: ${avail_kb} KB. Remove old .part/model files or use a larger Railway volume." >&2
+  echo "For Railway Free/Trial, prefer a smaller GGUF such as SmolLM2 360M (~271 MB)." >&2
+  exit 1
+fi
+
+# Resume only when a partial download exists. curl may return exit 23 when the
+# volume fills; keep the partial file so a larger volume can resume it.
 curl --fail --location --retry 3 --retry-delay 2 --continue-at - --output "${tmp}" "${auth_args[@]}" "${url}"
 mv -f "${tmp}" "${target}"
 echo "Downloaded ${target}"
