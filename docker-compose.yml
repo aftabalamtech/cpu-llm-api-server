@@ -11,6 +11,7 @@ services:
       PORT: 8080
       MODEL_DIR: ${MODEL_DIR:-/models}
       DOWNLOAD_MODEL: ${DOWNLOAD_MODEL:-true}
+      ENABLE_WEBUI: ${ENABLE_WEBUI:-true}
     ports:
       - "8080:8080"
     volumes:
