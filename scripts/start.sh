@@ -20,8 +20,10 @@ set -Eeuo pipefail
 : "${PARALLEL:=1}"
 : "${LOG_VERBOSITY:=3}"
 : "${CORS_ORIGINS:=}"
-: "${LLAMA_SERVER_BIN:=llama-server}"
+: "${LLAMA_SERVER_BIN:=}"
 : "${LLAMA_SERVER_ARGS:=}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -n "${MODEL_PATH}" && -f "${MODEL_PATH}" ]]; then
   echo "Using model from MODEL_PATH: ${MODEL_PATH}"
@@ -32,7 +34,7 @@ elif [[ "${DOWNLOAD_MODEL}" == "true" ]]; then
   fi
   MODEL_PATH="${MODEL_PATH:-${MODEL_DIR}/${MODEL_FILE}}"
   export MODEL_DIR MODEL_REPO MODEL_FILE MODEL_REVISION HF_TOKEN MODEL_PATH
-  "$(dirname "$0")/download-model.sh"
+  "${SCRIPT_DIR}/download-model.sh"
 else
   echo "No usable model configured. Set MODEL_PATH to an existing GGUF file or set MODEL_REPO and MODEL_FILE with DOWNLOAD_MODEL=true." >&2
   exit 2
@@ -42,6 +44,35 @@ if [[ ! -f "${MODEL_PATH}" ]]; then
   echo "Model file not found at ${MODEL_PATH}." >&2
   exit 1
 fi
+
+# Resolve llama-server across the official llama.cpp container layouts.
+# Prefer an explicitly configured binary, then PATH, then common image paths.
+if [[ -n "${LLAMA_SERVER_BIN}" ]]; then
+  if [[ ! -x "${LLAMA_SERVER_BIN}" ]] && ! command -v "${LLAMA_SERVER_BIN}" >/dev/null 2>&1; then
+    echo "ERROR: LLAMA_SERVER_BIN='${LLAMA_SERVER_BIN}' was not found or is not executable." >&2
+    exit 127
+  fi
+elif command -v llama-server >/dev/null 2>&1; then
+  LLAMA_SERVER_BIN="$(command -v llama-server)"
+elif [[ -x /app/llama-server ]]; then
+  LLAMA_SERVER_BIN=/app/llama-server
+elif [[ -x /usr/local/bin/llama-server ]]; then
+  LLAMA_SERVER_BIN=/usr/local/bin/llama-server
+elif [[ -x /usr/bin/llama-server ]]; then
+  LLAMA_SERVER_BIN=/usr/bin/llama-server
+else
+  echo "ERROR: llama-server executable not found." >&2
+  echo "Checked PATH, /app/llama-server, /usr/local/bin/llama-server, and /usr/bin/llama-server." >&2
+  echo "Set LLAMA_SERVER_BIN to the executable path if your llama.cpp image uses another location." >&2
+  exit 127
+fi
+
+echo "Using llama-server: ${LLAMA_SERVER_BIN}"
+if [[ -x "${LLAMA_SERVER_BIN}" ]]; then
+  "${LLAMA_SERVER_BIN}" --version 2>/dev/null || true
+fi
+
+echo "Starting llama-server on ${HOST}:${PORT} with model ${MODEL_PATH}"
 
 args=(
   --model "${MODEL_PATH}"
