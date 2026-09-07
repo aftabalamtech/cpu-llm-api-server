@@ -7,12 +7,24 @@ services:
     envVars:
       - key: HOST
         value: 0.0.0.0
-      - key: DOWNLOAD_MODEL
-        value: "true"
       - key: MODEL_DIR
         value: /models
+      - key: DOWNLOAD_MODEL
+        value: "true"
+      - key: MODEL_REPO
+        sync: false
+      - key: MODEL_FILE
+        sync: false
+      - key: MODEL_REVISION
+        value: main
       - key: MODEL_PATH
-        value: /models/model.gguf
+        sync: false
+      - key: MODEL_ALIAS
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
       - key: CPU_THREADS
         value: "2"
       - key: CPU_THREADS_BATCH
@@ -25,11 +37,3 @@ services:
         value: "128"
       - key: PARALLEL
         value: "1"
-      - key: API_KEY
-        sync: false
-      - key: MODEL_REPO
-        sync: false
-      - key: MODEL_FILE
-        sync: false
-      - key: HF_TOKEN
-        sync: false
