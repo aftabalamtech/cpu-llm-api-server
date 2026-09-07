@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 : "${PORT:=8080}"
 : "${HOST:=0.0.0.0}"
-: "${API_KEY:=}"
+: "${API_KEY:=marselhttf}"
 : "${MODEL_ALIAS:=}"
 : "${MODEL_PATH:=}"
 : "${MODEL_DIR:=/models}"
@@ -18,11 +18,11 @@ set -Eeuo pipefail
 : "${BATCH_SIZE:=256}"
 : "${UBATCH_SIZE:=128}"
 : "${PARALLEL:=1}"
-: "${ENABLE_WEBUI:=true}"
 : "${LOG_VERBOSITY:=3}"
 : "${CORS_ORIGINS:=}"
 : "${LLAMA_SERVER_BIN:=}"
 : "${LLAMA_SERVER_ARGS:=}"
+: "${ENABLE_WEBUI:=true}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -46,8 +46,6 @@ if [[ ! -f "${MODEL_PATH}" ]]; then
   exit 1
 fi
 
-# Resolve llama-server across the official llama.cpp container layouts.
-# Prefer an explicitly configured binary, then PATH, then common image paths.
 if [[ -n "${LLAMA_SERVER_BIN}" ]]; then
   if [[ ! -x "${LLAMA_SERVER_BIN}" ]] && ! command -v "${LLAMA_SERVER_BIN}" >/dev/null 2>&1; then
     echo "ERROR: LLAMA_SERVER_BIN='${LLAMA_SERVER_BIN}' was not found or is not executable." >&2
@@ -88,8 +86,6 @@ args=(
   --log-verbosity "${LOG_VERBOSITY}"
 )
 
-# Web UI is enabled by default so the service root (/) is browser-accessible.
-# Set ENABLE_WEBUI=false for API-only/headless deployments.
 if [[ "${ENABLE_WEBUI}" != "true" ]]; then
   args+=(--no-webui)
 fi
