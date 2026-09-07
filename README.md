@@ -1,156 +1,287 @@
 # CPU-only GGUF LLM API Server
 
-A lightweight, cross-platform API server for running a local or hosted **GGUF** model with the upstream `llama-server` executable from [llama.cpp](https://github.com/ggml-org/llama.cpp). The project exposes an OpenAI-compatible API, keeps the default runtime CPU-only, downloads no model during image build, and supports Docker, Linux, macOS, Windows PowerShell, Railway, Render, and a generic Docker-based VPS deployment.
+A lightweight cross-platform API server for running any user-selected **GGUF** model with the upstream `llama-server` executable from [llama.cpp](https://github.com/ggml-org/llama.cpp).
 
-> The container image uses the upstream `ghcr.io/ggml-org/llama.cpp:server` image. The launcher passes only documented `llama-server` options: `--model`, `--alias`, `--host`, `--port`, `--threads`, `--threads-batch`, `--ctx-size`, `--batch-size`, `--ubatch-size`, `--parallel`, `--no-webui`, `--log-verbosity`, `--cors-origins`, and optional `--api-key`.
+## Important: no default model
 
-## Supported platforms
+This repository intentionally has **no default model**.
 
-| Platform | Supported path | What is required |
+The server never assumes or downloads a bundled model. You must choose the model through environment variables:
+
+```text
+MODEL_REPO=owner/model-repository
+MODEL_FILE=exact-model-file.gguf
+MODEL_REVISION=main
+```
+
+Only the model specified by those variables is downloaded. Alternatively, set `MODEL_PATH` to an existing local/mounted GGUF file and set `DOWNLOAD_MODEL=false`.
+
+If neither a usable `MODEL_PATH` nor both `MODEL_REPO` and `MODEL_FILE` are provided, startup fails instead of silently selecting a model.
+
+## Features
+
+- CPU-first llama.cpp inference
+- GGUF model support
+- OpenAI-compatible API
+- Streaming chat completions
+- `/health`
+- `/v1/models`
+- `/v1/chat/completions`
+- Environment-only model selection
+- Hugging Face model download at startup
+- Local/mounted model support
+- Linux, macOS, Windows PowerShell and Docker
+- Railway and Render deployment configuration
+- Low-resource CPU defaults
+- Optional API-key authentication
+- No GGUF model committed to Git
+
+## Repository layout
+
+```text
+.
+├── README.md
+├── LICENSE
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── Dockerfile
+├── docker-compose.yml
+├── railway.toml
+├── render.yaml
+├── docs/
+│   ├── api.md
+│   ├── configuration.md
+│   ├── deployment.md
+│   └── troubleshooting.md
+├── models/
+│   └── .gitkeep
+├── scripts/
+│   ├── download-model.sh
+│   ├── healthcheck.sh
+│   ├── start.ps1
+│   └── start.sh
+└── tests/
+    ├── test_config.py
+    └── test_scripts.sh
+```
+
+## Environment variables
+
+| Variable | Required | Purpose |
 |---|---|---|
-| Linux | Native executable or Docker | A CPU build of `llama-server`, or Docker Engine |
-| macOS | Native executable through a POSIX shell | A compatible `llama-server` binary and `curl`; Apple Silicon is supported only in CPU mode by this repository's defaults |
-| Windows | PowerShell script | A compatible `llama-server.exe`, PowerShell, and a GGUF file or Hugging Face download settings |
-| Docker | Docker Compose or `docker run` | Docker Engine with enough disk and RAM for the selected model |
-| Railway | Docker deployment via `railway.toml` | Set model and secret environment variables in the Railway project; use a persistent volume if avoiding re-downloads |
-| Render | Docker web service via `render.yaml` | Set model and secret environment variables; use persistent storage or accept a model download on each replacement |
-| Generic VPS | Docker Compose or Docker CLI | A Linux VPS with Docker, a mounted model directory or download settings, and an exposed reverse-proxy/TLS layer for public use |
+| `MODEL_REPO` | Yes for download | Exact Hugging Face repository, e.g. `org/model-GGUF` |
+| `MODEL_FILE` | Yes for download | Exact GGUF filename to download |
+| `MODEL_REVISION` | No | Hugging Face branch/tag/commit; default `main` |
+| `MODEL_PATH` | Optional | Existing GGUF file path; if present and valid, it is used first |
+| `MODEL_DIR` | No | Directory used when `MODEL_PATH` is empty; default `/models` in Docker |
+| `DOWNLOAD_MODEL` | No | `true` to download when no existing model is available; default `true` |
+| `MODEL_ALIAS` | No | API model name; if empty, llama-server's normal behavior is used |
+| `HF_TOKEN` | Optional | Token for private/gated Hugging Face repositories |
+| `PORT` | No | Listening port; provider-supplied `PORT` is respected |
+| `HOST` | No | Bind address; Docker/provider deployments should use `0.0.0.0` |
+| `API_KEY` | Optional | Protects API endpoints when set |
+| `CPU_THREADS` | No | Generation CPU threads; default `2` |
+| `CPU_THREADS_BATCH` | No | Prompt-processing threads; default `2` |
+| `CONTEXT_SIZE` | No | Context window; default `2048` |
+| `BATCH_SIZE` | No | Logical batch size; default `256` |
+| `UBATCH_SIZE` | No | Physical micro-batch size; default `128` |
+| `PARALLEL` | No | Concurrent sequences; default `1` |
+| `CORS_ORIGINS` | Optional | Explicit CORS origins; empty means do not add a CORS override |
+| `LLAMA_SERVER_BIN` | No | Local executable name/path; default `llama-server` |
+| `LLAMA_SERVER_ARGS` | Optional | Additional llama-server arguments |
+| `LOG_VERBOSITY` | No | llama-server log verbosity; default `3` |
 
-The repository does **not** claim native Windows batch-file support, GPU acceleration, model conversion, multi-model routing, or durable hosted model storage on providers that do not offer a persistent disk.
+## Quick start: model from Hugging Face
+
+Copy the example environment file and set the exact model you want:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```dotenv
+MODEL_REPO=YOUR_ORG/YOUR_MODEL_GGUF_REPO
+MODEL_FILE=YOUR_EXACT_MODEL.gguf
+MODEL_REVISION=main
+DOWNLOAD_MODEL=true
+MODEL_ALIAS=
+```
+
+Then start the server using Docker Compose:
+
+```bash
+docker compose up -d --build
+curl -fsS http://localhost:${PORT:-8080}/health
+```
+
+The container downloads **only** `MODEL_REPO/MODEL_FILE` if the selected model is not already present.
+
+## Quick start: existing local model
+
+Set:
+
+```dotenv
+MODEL_PATH=/models/your-model.gguf
+DOWNLOAD_MODEL=false
+```
+
+Place the model in `./models/your-model.gguf`, then run:
+
+```bash
+docker compose up -d --build
+```
+
+No model is downloaded in this mode.
 
 ## API
 
-The upstream server provides the following required routes.
-
-| Route | Purpose | Authentication |
-|---|---|---|
-| `GET /health` | Returns `200` with `{"status":"ok"}` after the model is ready; returns `503` while loading | Public by design, so deployment health checks work |
-| `GET /v1/models` | Lists the loaded model using `MODEL_ALIAS` | API key when `API_KEY` is set |
-| `POST /v1/chat/completions` | OpenAI-compatible chat completion endpoint | API key when `API_KEY` is set |
-
-Set `stream: true` in a chat completion request to receive server-sent event streaming. The client should send `Authorization: Bearer $API_KEY` when authentication is enabled. The `/health` endpoint remains public because upstream documents it as a public health check.
-
-Example:
+### Health
 
 ```bash
-curl -sS http://localhost:8080/v1/models \
-  -H "Authorization: Bearer change-me"
+curl -fsS http://localhost:8080/health
+```
 
+### Models
+
+```bash
+curl http://localhost:8080/v1/models \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+### Chat completion
+
+```bash
 curl -N http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer change-me" \
+  -H "Authorization: Bearer $API_KEY" \
   -d '{
-    "model": "local-model",
-    "messages": [{"role": "user", "content": "Say hello in one sentence."}],
+    "model": "YOUR_MODEL_ALIAS",
+    "messages": [{"role": "user", "content": "Hello"}],
     "stream": true,
     "max_tokens": 64
   }'
 ```
 
-## Model configuration
+The API is provided by upstream `llama-server`; this repository does not implement a custom inference engine.
 
-No GGUF model is committed. The launcher first checks `MODEL_PATH`. If that file is absent and `DOWNLOAD_MODEL=true`, it downloads `MODEL_FILE` from the Hugging Face repository `MODEL_REPO` at `MODEL_REVISION` directly to `MODEL_PATH` (creating its parent directory). A private or gated repository may use `HF_TOKEN`.
+## Resource usage
 
-The default example is intentionally small and CPU-oriented:
+GGUF file size is **not** the same as total RAM usage. Runtime memory also includes model residency, KV cache, batch buffers, allocator overhead and operating-system cache.
 
-| Variable | Default | Meaning |
-|---|---:|---|
-| `MODEL_REPO` | `ggml-org/gemma-3-1b-it-GGUF` | Hugging Face repository used only when downloading |
-| `MODEL_FILE` | `gemma-3-1b-it-Q4_K_M.gguf` | Quantized GGUF filename used by the example |
-| `MODEL_PATH` | `/models/model.gguf` | File passed to `llama-server`; set it to the downloaded file or mounted file |
-| `MODEL_ALIAS` | `local-model` | Value returned by `/v1/models` and used in requests |
+The conservative defaults are:
 
-The example model is a configuration default, not a model artifact. Verify the model's license and suitability before deploying it.
+```text
+CPU_THREADS=2
+CPU_THREADS_BATCH=2
+CONTEXT_SIZE=2048
+BATCH_SIZE=256
+UBATCH_SIZE=128
+PARALLEL=1
+```
 
-## Resource guidance
+For a small CPU machine, reduce `CONTEXT_SIZE`, `BATCH_SIZE`, `UBATCH_SIZE` and `PARALLEL` first if RAM is insufficient.
 
-The GGUF **file size is not total RAM usage**. Runtime memory also includes the mapped or resident model weights, KV cache, prompt and batch buffers, allocator overhead, and the operating system's file cache. KV-cache memory grows with context size, concurrent sequences, layers, and cache data types. A smaller quantized file can therefore still require materially more RAM at runtime than its file size suggests.
+## Linux and macOS
 
-The defaults target small CPU machines rather than maximum throughput.
-
-| Setting | Default | Resource rationale |
-|---|---:|---|
-| `CPU_THREADS` | `2` | Avoids saturating a small shared VM; increase after measuring throughput |
-| `CPU_THREADS_BATCH` | `2` | Keeps prompt processing bounded on low-core hosts |
-| `CONTEXT_SIZE` | `2048` | Limits KV-cache growth; increase only with available RAM |
-| `BATCH_SIZE` | `256` | Reduces prompt-processing workspace versus upstream's larger default |
-| `UBATCH_SIZE` | `128` | Keeps physical batch memory bounded |
-| `PARALLEL` | `1` | Avoids multiplying KV-cache usage across concurrent sequences |
-| Quantization | User-selected GGUF | Q4-class models usually reduce storage and weight memory compared with F16, with quality trade-offs |
-
-For a first deployment, reserve more RAM than the GGUF file size and monitor resident memory during long contexts. If the process is killed, reduce `CONTEXT_SIZE`, `BATCH_SIZE`, `UBATCH_SIZE`, and `PARALLEL` before increasing CPU threads.
-
-## Linux and macOS: native setup
-
-Install a CPU-capable `llama-server` binary from a trusted llama.cpp release or build llama.cpp according to its upstream instructions. Do not use a binary built only for an incompatible architecture. Then copy `.env.example` to `.env`, edit the model variables, and run:
+Install a compatible CPU `llama-server` binary from upstream llama.cpp releases or build it from source. Then:
 
 ```bash
 cp .env.example .env
-# Edit .env. For a local file, set MODEL_PATH and DOWNLOAD_MODEL=false.
+# Edit .env with your model variables.
 chmod +x scripts/*.sh
 set -a; . ./.env; set +a
 ./scripts/start.sh
 ```
 
-The script binds to `HOST` and `PORT`; it does not replace the platform-provided `PORT`. For macOS, run the same POSIX script from Terminal after installing a compatible `llama-server` executable and ensuring it is on `PATH`, or set `LLAMA_SERVER_BIN` to its full path.
+The shell launcher uses the exact model selected by the environment. It does not contain a fallback model.
 
-## Windows PowerShell setup
+## Windows PowerShell
 
-Install a compatible `llama-server.exe`, place a GGUF model at the configured `MODEL_PATH`, or set `MODEL_REPO`, `MODEL_FILE`, and `DOWNLOAD_MODEL=true`. In PowerShell:
+Install a compatible `llama-server.exe`, then configure the same environment variables and run:
 
 ```powershell
-Copy-Item .env.example .env
-# Load the values you need into the current PowerShell session, for example:
-$env:MODEL_PATH = "$PWD\models\model.gguf"
-$env:DOWNLOAD_MODEL = "false"
-$env:API_KEY = "change-me"
+$env:MODEL_REPO = "YOUR_ORG/YOUR_MODEL_GGUF_REPO"
+$env:MODEL_FILE = "YOUR_EXACT_MODEL.gguf"
+$env:DOWNLOAD_MODEL = "true"
 $env:LLAMA_SERVER_BIN = "C:\path\to\llama-server.exe"
 .\scripts\start.ps1
 ```
 
-If PowerShell execution policy blocks local scripts, use a user-approved policy appropriate for your environment; do not disable security controls globally. The script uses the same API and tuning variables as the POSIX launcher.
+## Docker
 
-## Docker Compose
-
-Create `.env`, edit it, and start the server:
+The Docker image is based on the upstream llama.cpp server image. No model is copied into the image. The `/models` directory is a volume.
 
 ```bash
-cp .env.example .env
-# For a mounted local model, set MODEL_PATH=/models/your-model.gguf and DOWNLOAD_MODEL=false.
 docker compose up -d --build
-curl -fsS http://localhost:${PORT:-8080}/health
 ```
-
-The Compose file mounts `./models` at `/models` and uses `${PORT:-8080}` only as a local Compose fallback. Hosted deployments still receive their own `PORT` environment variable. The health check waits for the public `/health` route.
-
-## Generic VPS Docker deployment
-
-On a Linux VPS, install Docker, clone this repository, place a model in `models/` or configure the Hugging Face download variables, set a strong `API_KEY`, and run `docker compose up -d --build`. Put the service behind a TLS reverse proxy before exposing it publicly. Keep the API key out of Git, restrict firewall access, and use a persistent disk for `models/` if model downloads should survive container replacement.
 
 ## Railway
 
-Create a Railway service from this repository. `railway.toml` selects the Dockerfile, starts `/app/scripts/start.sh`, and checks `/health`. Railway injects `PORT`; the launcher passes that value to llama-server and never hardcodes a Railway port. Configure `API_KEY`, `MODEL_REPO`, `MODEL_FILE`, and optionally `HF_TOKEN`, `MODEL_ALIAS`, and tuning variables in Railway's Variables UI. A Railway volume mounted at `/models` is recommended when supported by the selected plan; otherwise the model may be downloaded again after replacement.
+The repository includes `railway.toml` using the Dockerfile and `/health` health check. Railway supplies `PORT`; the launcher passes it to llama-server.
+
+Set these variables in the Railway service:
+
+```text
+MODEL_REPO
+MODEL_FILE
+MODEL_REVISION (optional)
+MODEL_PATH (optional)
+MODEL_ALIAS (optional)
+API_KEY (recommended)
+HF_TOKEN (only for private/gated models)
+```
+
+For a hosted download, leave `MODEL_PATH` unset and set `MODEL_REPO` plus `MODEL_FILE`. The selected model is then the only model downloaded.
+
+Use persistent storage if you want the downloaded model to survive service replacement. Without persistent storage, the model may need to be downloaded again.
 
 ## Render
 
-Create a Render Blueprint from `render.yaml` or create a Docker web service from this repository. Render injects `PORT`; the launcher binds to it. Set the secret values marked `sync: false`, especially `API_KEY`, `MODEL_REPO`, and `MODEL_FILE`. The service uses `/health` for readiness. Configure a persistent disk mounted at `/models` if the service plan supports one and you want to avoid repeat downloads; without persistent storage, replacement instances should be expected to download the model again.
+The repository includes a Render Blueprint using Docker and `/health`.
 
-## Security and operations
+The Blueprint deliberately does **not** choose a model. `MODEL_REPO`, `MODEL_FILE`, and other model-related values are supplied as environment variables during deployment. Render's `sync: false` variables are intentionally used so the repository does not contain model or secret values.
 
-Set `API_KEY` for every non-local deployment. The key is passed to the upstream server's documented `--api-key` option. Use HTTPS through a reverse proxy for public traffic, do not place secrets in `.env.example`, and do not commit GGUF files. The server's built-in web UI is disabled with `--no-webui`; the API remains available.
+Do not assume Render Free can run an arbitrary GGUF model. Select a compute plan with enough RAM for the specific model and context configuration you choose.
 
-This project intentionally avoids a custom proxy layer, database, telemetry service, or model manager. As a result, upstream llama-server behavior and model chat-template compatibility remain the primary operational dependencies.
+## Generic VPS
 
-## Tests and verification
+Use Docker Compose on a Linux VPS:
 
-The repository includes static consistency tests that do not download a model or start inference. Run:
+```bash
+git clone https://github.com/aftabalamtech/cpu-llm-api-server.git
+cd cpu-llm-api-server
+cp .env.example .env
+# Set MODEL_REPO and MODEL_FILE, or MODEL_PATH for an existing file.
+docker compose up -d --build
+```
+
+For public access, put the service behind HTTPS and set a strong `API_KEY`.
+
+## Security
+
+- Do not commit `.env` or `HF_TOKEN`.
+- Set `API_KEY` for public deployments.
+- Do not expose the API without TLS on an untrusted network.
+- Keep `CORS_ORIGINS` restricted when browser clients are used.
+- GGUF files are intentionally excluded from Git.
+
+## Testing
+
+Static tests do not download a model or perform inference:
 
 ```bash
 python3 -m unittest discover -s tests -v
-bash -n scripts/start.sh scripts/download-model.sh scripts/healthcheck.sh
+bash tests/test_scripts.sh
 ```
 
-## References
+## Support boundary
 
-[1]: https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md "llama.cpp HTTP Server documentation"
-[2]: https://github.com/ggml-org/llama.cpp "llama.cpp upstream repository"
+This repository supports the deployment paths that have actual configuration and matching documentation in the repository. It does not claim GPU acceleration, model conversion, model routing, or provider-specific persistent storage where the provider/plan does not supply it.
+
+## Upstream
+
+- [llama.cpp](https://github.com/ggml-org/llama.cpp)
+- [llama-server documentation](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
