@@ -18,6 +18,27 @@ Only the model specified by those variables is downloaded. Alternatively, set `M
 
 If neither a usable `MODEL_PATH` nor both `MODEL_REPO` and `MODEL_FILE` are provided, startup fails instead of silently selecting a model.
 
+## Recommended alternative model
+
+If you want to test a model other than the previously used SmolLM2 model, **Qwen2.5-0.5B-Instruct** is a good lightweight alternative. The official GGUF repository provides multiple quantizations, including Q4_K_M. The Q4_K_M file is about 491 MB in the official repository. citeturn0search0
+
+Official Hugging Face model page:
+
+https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF
+
+Render environment values:
+
+```dotenv
+MODEL_REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
+MODEL_FILE=qwen2.5-0.5b-instruct-q4_k_m.gguf
+MODEL_REVISION=main
+MODEL_PATH=
+DOWNLOAD_MODEL=true
+MODEL_ALIAS=Qwen2.5-0.5B-Instruct
+```
+
+Note: the exact filename should be confirmed from the repository's Files tab before deployment because Hugging Face filenames are case-sensitive. The official model page documents Q4_K_M and its size. citeturn0search0
+
 ## Features
 
 - CPU-first llama.cpp inference
@@ -91,6 +112,7 @@ If neither a usable `MODEL_PATH` nor both `MODEL_REPO` and `MODEL_FILE` are prov
 | `LLAMA_SERVER_BIN` | No | Local executable name/path; default `llama-server` |
 | `LLAMA_SERVER_ARGS` | Optional | Additional llama-server arguments |
 | `LOG_VERBOSITY` | No | llama-server log verbosity; default `3` |
+| `ENABLE_WEBUI` | No | Enables the llama.cpp Web UI; default `true` |
 
 ## Quick start: model from Hugging Face
 
