@@ -25,7 +25,6 @@ $Parallel = EnvOrDefault 'PARALLEL' '1'
 $LogVerbosity = EnvOrDefault 'LOG_VERBOSITY' '3'
 $CorsOrigins = EnvOrDefault 'CORS_ORIGINS' ''
 $Server = EnvOrDefault 'LLAMA_SERVER_BIN' 'llama-server'
-$ExtraArgs = EnvOrDefault 'LLAMA_SERVER_ARGS' ''
 
 if (-not [string]::IsNullOrWhiteSpace($ModelPath) -and (Test-Path -LiteralPath $ModelPath -PathType Leaf)) {
   Write-Host "Using model from MODEL_PATH: $ModelPath"
@@ -74,12 +73,6 @@ $args = @(
 if (-not [string]::IsNullOrWhiteSpace($ModelAlias)) { $args += @('--alias', $ModelAlias) }
 if (-not [string]::IsNullOrWhiteSpace($CorsOrigins)) { $args += @('--cors-origins', $CorsOrigins) }
 if (-not [string]::IsNullOrWhiteSpace($ApiKey)) { $args += @('--api-key', $ApiKey) }
-
-if (-not [string]::IsNullOrWhiteSpace($ExtraArgs)) {
-  $args += [System.Management.Automation.PSParser]::Tokenize($ExtraArgs, [ref]$null) |
-    Where-Object { $_.Type -eq 'CommandArgument' } |
-    ForEach-Object { $_.Content }
-}
 
 & $Server @args
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
