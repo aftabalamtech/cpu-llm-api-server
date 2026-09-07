@@ -1,9 +1,11 @@
 FROM ghcr.io/ggml-org/llama.cpp:server
 
 WORKDIR /app
+
 COPY scripts/start.sh /app/scripts/start.sh
 COPY scripts/download-model.sh /app/scripts/download-model.sh
 COPY scripts/healthcheck.sh /app/scripts/healthcheck.sh
+
 RUN chmod +x /app/scripts/start.sh /app/scripts/download-model.sh /app/scripts/healthcheck.sh \
     && mkdir -p /models
 
@@ -19,5 +21,7 @@ ENV HOST=0.0.0.0 \
     PARALLEL=1 \
     LOG_VERBOSITY=3
 
-VOLUME ["/models"]
+# Do not declare a Dockerfile VOLUME here.
+# Railway manages persistent volumes from the service configuration.
+
 ENTRYPOINT ["/app/scripts/start.sh"]
