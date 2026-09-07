@@ -8,6 +8,16 @@ This repository intentionally has **no default model**. Choose the model through
 
 ## Recommended example models
 
+The following models are useful reference choices for low-resource CPU deployments. **Render Free RAM is a practical risk rating, not a guarantee**: actual runtime memory also depends on context size, batch sizes, allocator overhead and the rest of the container workload.
+
+| Model | GGUF | Approx file | Render Free |
+|---|---|---:|---|
+| SmolLM2 360M | ✅ | ~271 MB | 🟢 Best |
+| Hunyuan 0.5B | ✅ | ~350 MB | 🟢/🟡 |
+| Qwen2 0.5B | ✅ | ~398 MB | 🟡 |
+| Qwen2.5 0.5B | ✅ | ~491 MB | 🟡 |
+| Qwen3 0.6B | ✅ | ~484 MB | 🔴 Risky |
+
 ### 1. SmolLM2 360M Instruct — lightweight
 
 Good choice for low-RAM CPU deployments such as small Render instances.
@@ -21,9 +31,35 @@ MODEL_ALIAS=SmolLM2-360M-Instruct
 
 Model repository: https://huggingface.co/unsloth/SmolLM2-360M-Instruct-GGUF
 
-### 2. Qwen2.5 0.5B Instruct — alternative
+### 2. Hunyuan 0.5B Instruct — low-RAM alternative
 
-A different, somewhat larger instruction model. Its Q4_K_M file is approximately 491 MB, so allow enough RAM for model runtime overhead and KV cache.
+A compact instruction model. Its Q4_K_M file is approximately 0.35 GB and is marked as recommended by the model repository.
+
+```dotenv
+MODEL_REPO=bartowski/tencent_Hunyuan-0.5B-Instruct-GGUF
+MODEL_FILE=Hunyuan-0.5B-Instruct-Q4_K_M.gguf
+MODEL_REVISION=main
+MODEL_ALIAS=Hunyuan-0.5B-Instruct
+```
+
+Model repository: https://huggingface.co/bartowski/tencent_Hunyuan-0.5B-Instruct-GGUF
+
+### 3. Qwen2 0.5B Instruct — compact Qwen option
+
+The official Qwen GGUF repository provides a Q4_K_M file of approximately 398 MB.
+
+```dotenv
+MODEL_REPO=Qwen/Qwen2-0.5B-Instruct-GGUF
+MODEL_FILE=qwen2-0_5b-instruct-q4_k_m.gguf
+MODEL_REVISION=main
+MODEL_ALIAS=Qwen2-0.5B-Instruct
+```
+
+Model repository: https://huggingface.co/Qwen/Qwen2-0.5B-Instruct-GGUF
+
+### 4. Qwen2.5 0.5B Instruct — newer Qwen alternative
+
+A somewhat larger instruction model. Its Q4_K_M file is approximately 491 MB, so allow enough RAM for model runtime overhead and KV cache.
 
 ```dotenv
 MODEL_REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
@@ -33,6 +69,19 @@ MODEL_ALIAS=Qwen2.5-0.5B-Instruct
 ```
 
 Model repository: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF
+
+### 5. Qwen3 0.6B — higher-risk option for Render Free
+
+The Q4_K_M file is approximately 484 MB. Because the file itself is close to the 512 MB Render Free memory limit, runtime overhead can push the service over the limit. Treat this as a testing option rather than a recommended Render Free deployment.
+
+```dotenv
+MODEL_REPO=QuantFactory/Qwen3-0.6B-GGUF
+MODEL_FILE=Qwen3-0.6B.Q4_K_M.gguf
+MODEL_REVISION=main
+MODEL_ALIAS=Qwen3-0.6B
+```
+
+Model repository: https://huggingface.co/QuantFactory/Qwen3-0.6B-GGUF
 
 > Only configure **one model at a time**. The server downloads only the exact `MODEL_REPO` + `MODEL_FILE` selected in the environment.
 
